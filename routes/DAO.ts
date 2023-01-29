@@ -4,7 +4,7 @@ const express = require("express");
 const router = express.Router();
 
 // MAKR: static 객체 지정
-const DAO = require("../libs/DAO");
+const DAO = require("../libs/dao/DAO");
 /* GET home page. */
 router.post(
   "/:DML",

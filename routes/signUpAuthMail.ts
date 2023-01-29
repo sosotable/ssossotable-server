@@ -5,7 +5,7 @@ const router = express.Router();
 
 // MARK: naver cloud mailer api 이용 인증 메일 전송 라우터
 router.route("/").post(async (req: Request, res: Response) => {
-  const naverCloudApi = require("../libs/naver_cloud_api");
+  const naverCloudApi = require("../libs/naver-cloud-api/naver_cloud_api");
   const sendData = JSON.parse(req.body.sendData);
   const mail_body = require("../models/mail_body.js").body(sendData.body);
   await naverCloudApi.mailer({

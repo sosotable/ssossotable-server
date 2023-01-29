@@ -1,5 +1,5 @@
 import { RowDataPacket, FieldPacket, Pool } from "mysql2/promise";
-const mysql_dbc = require("./db_connection")();
+const mysql_dbc = require("./config/db_connection")();
 
 interface Post extends RowDataPacket {
   id: number;

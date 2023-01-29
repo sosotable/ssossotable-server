@@ -1,0 +1,180 @@
+#!/usr/bin/env node
+
+require("dotenv").config({
+  path: '../.env'
+});
+/**
+ * Module dependencies.
+ */
+
+const app = require('../dist/app');
+const debug = require('debug')('ssossotable-server:server');
+const http = require('http');
+
+/**
+ * Get port from environment and store in Express.
+ */
+
+const port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+/**
+ * Create HTTP server.
+ */
+
+const server = http.createServer(app);
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "http://localhost:9000",
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+io.on("connection", async (socket) => {
+  console.log("a user connected");
+
+  const mysql_dbc = require("../dist/libs/dao/config/db_connection")();
+  const connection = await mysql_dbc.init();
+  socket.on("disconnect", () => {
+    console.log("user disconnected");
+    connection.end();
+  });
+  socket.on("INSERT", async (msg) => {
+    try {
+      /** MARK:
+       *  colmumns 가 undefined 키워드 즉 입력되지 않은 경우 생략하고 모든 열에 입력됨
+       * */
+      if (msg.columns === undefined) {
+        await connection.query(
+            `INSERT INTO ` + `${msg.table} ` + `VALUES(${msg.values})`
+        );
+      } else {
+        await connection.query(
+            `INSERT INTO ` +
+            `${msg.table}(${msg.columns}) ` +
+            `VALUES(${msg.values})`
+        );
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  });
+  socket.on("SELECT", async (msg) => {
+    try {
+      /** MARK:
+       *  where 매개변수를 입력하지 않는 경우 모든 열 검색
+       * */
+      if (msg.where === undefined) {
+        const [rows, fields] = await connection.query(
+            `SELECT ` + `${msg.columns} ` + `FROM ` + `${msg.table}`
+        );
+        io.emit("SELECT", {
+          TAG: msg.TAG,
+          returnValue: rows,
+        });
+      } else {
+        const [rows, fields] = await connection.query(
+            `SELECT ` +
+            `${msg.columns} ` +
+            `from ` +
+            `${msg.table} ` +
+            `WHERE ${msg.where}`
+        );
+        io.emit("SELECT", {
+          TAG: msg.TAG,
+          returnValue: rows,
+        });
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  });
+  socket.on("UPDATE", async (msg) => {
+    try {
+      await connection.query(
+          `UPDATE ` + `${msg.table} ` + `SET ${msg.set} ` + `WHERE ${msg.where}`
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  });
+  socket.on("DELETE", async (msg) => {
+    try {
+      await connection.query(
+          `DELETE ` + `FROM ` + `${msg.table} ` + `WHERE ${msg.where}`
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  });
+});
+/**
+ * Listen on provided port, on all network interfaces.
+ */
+
+server.listen(port, async ()=>{
+  const DAO = require('../dist/libs/dao/DAO')
+  await DAO.init();
+});
+server.on('error', onError);
+server.on('listening', onListening);
+
+/**
+ * Normalize a port into a number, string, or false.
+ */
+
+function normalizePort(val) {
+  const port = parseInt(val, 10);
+
+  if (isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+/**
+ * Event listener for HTTP server "error" event.
+ */
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  const bind = typeof port === 'string'
+    ? 'Pipe ' + port
+    : 'Port ' + port;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(bind + ' requires elevated privileges');
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(bind + ' is already in use');
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+/**
+ * Event listener for HTTP server "listening" event.
+ */
+
+function onListening() {
+  const addr = server.address();
+  const bind = typeof addr === 'string'
+    ? 'pipe ' + addr
+    : 'port ' + addr.port;
+  debug('Listening on ' + bind);
+}
