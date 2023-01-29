@@ -13,7 +13,7 @@ const cors = require("cors");
 const fileUpload = require("express-fileupload");
 /** MARK: DAO 모듈
  * */
-const DAO = require("../dist/modules/DAO");
+const DAO = require("./libs/DAO");
 
 /** MARK: express
  * **/
@@ -24,76 +24,17 @@ const app = express();
  * **/
 const http = require("http");
 const server = http.createServer(app);
-const { Server } = require("socket.io");
-const io = new Server(server, {
+const io = require("socket.io")(server, {
   cors: {
     origin: "http://localhost:9000",
     methods: ["GET", "POST"],
-  },
-});
-
-/** MARK: routers
- * **/
-const indexRouter = require("./routes/index");
-const signUpAuthMailRouter = require("./routes/signUpAuthMail");
-const DAORouter = require("./routes/DAO");
-const fileHandlerRouter = require("./routes/fileHandler");
-const userSessionHandlerRouter = require("./routes/userSessionHandler");
-
-// view engine setup
-app.set("views", path.join(process.env.BUILD_PATH, "views"));
-app.set("view engine", "ejs");
-app.set("trust proxy", 1);
-
-app.use(logger("dev"));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(process.env.BUILD_PATH, "public")));
-// ADDED: cors 사용
-app.use(cors());
-app.use(
-  fileUpload({
-    limits: {
-      fileSize: 10000000, //10mb
-    },
-    abortOnLimit: true,
-  })
-);
-
-app.use(async (req: ExtendedRequest, res: Response, next: NextFunction) => {
-  if (!req.session) {
-    return next(new Error("oh no")); // handle error
+    credentials: true
   }
-  next(); // otherwise continue
 });
-
-app.use("/", indexRouter);
-app.use("/authMail", signUpAuthMailRouter);
-app.use("/DAO", DAORouter);
-app.use("/fileHandler", fileHandlerRouter);
-app.use("/userSessionHandler", userSessionHandlerRouter);
-
-// catch 404 and forward to error handler
-app.use((req: Request, res: Response, next: NextFunction) => {
-  next(createError(404));
-});
-
-// error handler
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get("env") === "development" ? err : {};
-
-  // render the error page
-  res.status(err.status || 500);
-  res.render("error");
-});
-
 io.on("connection", async (socket: any) => {
   console.log("a user connected");
 
-  const mysql_dbc = require("../dist/modules/db_connection")();
+  const mysql_dbc = require("./libs/db_connection")();
   const connection = await mysql_dbc.init();
   socket.on("disconnect", () => {
     console.log("user disconnected");
@@ -106,11 +47,11 @@ io.on("connection", async (socket: any) => {
        * */
       if (msg.columns === undefined) {
         await connection.query(
-          `INSERT INTO ` + `${msg.table} ` + `VALUES(${msg.values})`
+            `INSERT INTO ` + `${msg.table} ` + `VALUES(${msg.values})`
         );
       } else {
         await connection.query(
-          `INSERT INTO ` +
+            `INSERT INTO ` +
             `${msg.table}(${msg.columns}) ` +
             `VALUES(${msg.values})`
         );
@@ -126,7 +67,7 @@ io.on("connection", async (socket: any) => {
        * */
       if (msg.where === undefined) {
         const [rows, fields] = await connection.query(
-          `SELECT ` + `${msg.columns} ` + `FROM ` + `${msg.table}`
+            `SELECT ` + `${msg.columns} ` + `FROM ` + `${msg.table}`
         );
         io.emit("SELECT", {
           TAG: msg.TAG,
@@ -134,7 +75,7 @@ io.on("connection", async (socket: any) => {
         });
       } else {
         const [rows, fields] = await connection.query(
-          `SELECT ` +
+            `SELECT ` +
             `${msg.columns} ` +
             `from ` +
             `${msg.table} ` +
@@ -152,7 +93,7 @@ io.on("connection", async (socket: any) => {
   socket.on("UPDATE", async (msg: any) => {
     try {
       await connection.query(
-        `UPDATE ` + `${msg.table} ` + `SET ${msg.set} ` + `WHERE ${msg.where}`
+          `UPDATE ` + `${msg.table} ` + `SET ${msg.set} ` + `WHERE ${msg.where}`
       );
     } catch (e) {
       console.error(e);
@@ -161,13 +102,65 @@ io.on("connection", async (socket: any) => {
   socket.on("DELETE", async (msg: any) => {
     try {
       await connection.query(
-        `DELETE ` + `FROM ` + `${msg.table} ` + `WHERE ${msg.where}`
+          `DELETE ` + `FROM ` + `${msg.table} ` + `WHERE ${msg.where}`
       );
     } catch (e) {
       console.error(e);
     }
   });
 });
+/** MARK: routers
+ * **/
+const indexRouter = require("./routes/index");
+const signUpAuthMailRouter = require("./routes/signUpAuthMail");
+const DAORouter = require("./routes/DAO");
+const fileHandlerRouter = require("./routes/fileHandler");
+const userSessionHandlerRouter = require("./routes/userSessionHandler");
+const S3Router = require("./routes/S3Router")
+
+// view engine setup
+app.set("views", path.join(process.env.BUILD_PATH, "views"));
+app.set("view engine", "ejs");
+
+app.use(logger("dev"));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(cookieParser());
+app.use(express.static(path.join(process.env.BUILD_PATH, "public")));
+// ADDED: cors 사용
+app.use(cors());
+app.use(
+  fileUpload({
+    limits: {
+      fileSize: 10000000, //10mb
+    },
+    abortOnLimit: true,
+  })
+);
+app.use("/", indexRouter);
+app.use("/authMail", signUpAuthMailRouter);
+app.use("/DAO", DAORouter);
+app.use("/fileHandler", fileHandlerRouter);
+app.use("/userSessionHandler", userSessionHandlerRouter);
+app.use("/S3",S3Router)
+
+// catch 404 and forward to error handler
+app.use((req: Request, res: Response, next: NextFunction) => {
+  next(createError(404));
+});
+
+// error handler
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  // set locals, only providing error in development
+  res.locals.message = err.message;
+  res.locals.error = req.app.get("env") === "development" ? err : {};
+
+  // render the error page
+  res.status(err.status || 500);
+  res.render("error");
+});
+
+
 
 app.listen(port, async () => {
   await DAO.init();
