@@ -1,4 +1,7 @@
+# 환경변수
 .env
+
+public/
 
 # Logs
 logs
