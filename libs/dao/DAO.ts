@@ -1,11 +1,7 @@
 import { RowDataPacket, FieldPacket, Pool } from "mysql2/promise";
-const mysql_dbc = require("./config/db_connection")();
+import { Post } from "../../interface/models";
 
-interface Post extends RowDataPacket {
-  id: number;
-  title: string;
-  content: string;
-}
+const mysql_dbc = require("./config/db_connection")();
 
 class DAO {
   // MARK: singleton
@@ -20,7 +16,6 @@ class DAO {
       DAO.DAOInstance = this;
     }
   }
-
   // MARK: DB 연결 설립과 해제
   async init() {
     DAO.connection = await mysql_dbc.init();

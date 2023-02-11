@@ -1,15 +1,8 @@
 import { NextFunction, Request, Response } from "express";
+import { ReturnValue, ExtendedRequest } from "../interface/models";
 
 const express = require("express");
 const router = express.Router();
-
-interface ReturnValue {
-  key: string;
-  value: string | boolean;
-}
-interface ExtendedRequest extends Request {
-  session: any;
-}
 
 router
   .route("/:method")
@@ -48,13 +41,11 @@ router
           value = req.body.value;
           returnValue.value = true;
           req.session.user_key = value;
-          console.log(req.session);
         } catch (e) {
           returnValue.value = JSON.stringify(e);
         }
         break;
     }
-    console.log(req.session);
     res.send(JSON.stringify(returnValue));
   });
 
